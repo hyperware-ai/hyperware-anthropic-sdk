@@ -1,0 +1,143 @@
+use crate::error::{AnthropicError, ApiErrorResponse};
+use crate::types::messages::{CreateMessageRequest, MessageResponse, Message, Role, Content};
+use hyperware_process_lib::http::client::send_request_await_response;
+use hyperware_process_lib::http::Method;
+use serde_json;
+use std::collections::HashMap;
+
+const ANTHROPIC_API_BASE_URL: &str = "https://api.anthropic.com";
+const ANTHROPIC_API_VERSION: &str = "2023-06-01";
+const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
+
+pub struct AnthropicClient {
+    api_key: String,
+    base_url: String,
+    api_version: String,
+    timeout: u64,
+}
+
+impl AnthropicClient {
+    /// Create a new Anthropic API client with the provided API key
+    pub fn new(api_key: impl Into<String>) -> Self {
+        Self {
+            api_key: api_key.into(),
+            base_url: ANTHROPIC_API_BASE_URL.to_string(),
+            api_version: ANTHROPIC_API_VERSION.to_string(),
+            timeout: DEFAULT_TIMEOUT_SECONDS,
+        }
+    }
+    
+    /// Create a new client with custom base URL (useful for testing or proxies)
+    pub fn with_base_url(mut self, base_url: impl Into<String>) -> Self {
+        self.base_url = base_url.into();
+        self
+    }
+    
+    /// Set a custom API version
+    pub fn with_api_version(mut self, api_version: impl Into<String>) -> Self {
+        self.api_version = api_version.into();
+        self
+    }
+    
+    /// Set custom timeout in seconds
+    pub fn with_timeout(mut self, timeout: u64) -> Self {
+        self.timeout = timeout;
+        self
+    }
+    
+    /// Send a message to the Anthropic API
+    pub async fn send_message(&self, request: CreateMessageRequest) -> Result<MessageResponse, AnthropicError> {
+        // Ensure streaming is disabled
+        let mut request = request;
+        request.stream = Some(false);
+        
+        // Serialize the request body
+        let body = serde_json::to_vec(&request)
+            .map_err(|e| AnthropicError::Serialization(e.to_string()))?;
+        
+        // Build the URL
+        let url = format!("{}/v1/messages", self.base_url);
+        let url = url::Url::parse(&url)
+            .map_err(|_| AnthropicError::InvalidResponse(format!("Invalid URL: {}", url)))?;
+        
+        // Build headers
+        let mut headers = HashMap::new();
+        headers.insert("x-api-key".to_string(), self.api_key.clone());
+        headers.insert("anthropic-version".to_string(), self.api_version.clone());
+        headers.insert("content-type".to_string(), "application/json".to_string());
+        
+        // Make the HTTP request using the Hyperware HTTP client
+        let response = send_request_await_response(
+            Method::POST,
+            url,
+            Some(headers),
+            self.timeout,
+            body,
+        )
+        .await
+        .map_err(|e| AnthropicError::HttpClient(e.to_string()))?;
+        
+        // Check response status
+        let status = response.status();
+        let body = response.into_body();
+        
+        if status.is_success() {
+            // Parse successful response
+            serde_json::from_slice::<MessageResponse>(&body)
+                .map_err(|e| AnthropicError::Deserialization(format!("Failed to parse response: {}", e)))
+        } else {
+            // Try to parse error response
+            if let Ok(error_response) = serde_json::from_slice::<ApiErrorResponse>(&body) {
+                Err(AnthropicError::ApiError {
+                    error_type: error_response.error.error_type,
+                    message: error_response.error.message,
+                })
+            } else {
+                // Fallback to generic error
+                let error_text = String::from_utf8_lossy(&body);
+                Err(AnthropicError::InvalidResponse(format!(
+                    "API returned status {}: {}",
+                    status, error_text
+                )))
+            }
+        }
+    }
+    
+    /// Create a simple text message request
+    pub fn create_simple_message(
+        &self,
+        model: impl Into<String>,
+        prompt: impl Into<String>,
+        max_tokens: u32,
+    ) -> CreateMessageRequest {
+        CreateMessageRequest::new(
+            model,
+            vec![Message {
+                role: Role::User,
+                content: Content::Text(prompt.into()),
+            }],
+            max_tokens,
+        )
+    }
+    
+    /// Send a simple text message and get the response text
+    pub async fn send_simple_message(
+        &self,
+        model: impl Into<String>,
+        prompt: impl Into<String>,
+        max_tokens: u32,
+    ) -> Result<String, AnthropicError> {
+        let request = self.create_simple_message(model, prompt, max_tokens);
+        let response = self.send_message(request).await?;
+        
+        // Extract text from the first content block
+        if let Some(first_block) = response.content.first() {
+            match first_block {
+                crate::types::messages::ResponseContentBlock::Text { text, .. } => Ok(text.clone()),
+                _ => Err(AnthropicError::InvalidResponse("Expected text response".to_string())),
+            }
+        } else {
+            Err(AnthropicError::InvalidResponse("Empty response content".to_string()))
+        }
+    }
+}

@@ -1,0 +1,15 @@
+[package]
+name = "hyperware-anthropic-sdk"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sybil Technologies AG"]
+description = "A Rust SDK for Hyperware processes to access the Anthropic API"
+license = "MIT"
+repository = "https://github.com/hyperware/hyperware-anthropic-sdk"
+
+[dependencies]
+hyperware_process_lib = { git = "https://github.com/hyperware-ai/process_lib", rev = "753dac3", features = ["hyperapp"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+url = "2.5"
