@@ -32,14 +32,14 @@ use hyperware_anthropic_sdk::AnthropicClient;
 async fn my_hyperapp_function() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize the client with your API key
     let client = AnthropicClient::new("your-api-key");
-    
+
     // Send a simple message
     let response = client.send_simple_message(
         "claude-opus-4-1-20250805",
         "What is the capital of France?",
         100,
     ).await?;
-    
+
     println!("Response: {}", response);
     Ok(())
 }
@@ -116,8 +116,8 @@ let weather_tool = Tool::new(
 // Create request with tools
 let request = CreateMessageRequest::new(model, messages, max_tokens)
     .with_tools(vec![weather_tool])
-    .with_tool_choice(ToolChoice::Auto { 
-        disable_parallel_tool_use: None 
+    .with_tool_choice(ToolChoice::Auto {
+        disable_parallel_tool_use: None
     });
 
 // Send and handle tool use in response
@@ -168,7 +168,7 @@ let response = client.send_message(request).await?;
 println!("Message ID: {}", response.id);
 println!("Model: {}", response.model);
 println!("Stop reason: {:?}", response.stop_reason);
-println!("Tokens used: {} input, {} output", 
+println!("Tokens used: {} input, {} output",
     response.usage.input_tokens,
     response.usage.output_tokens
 );
@@ -234,6 +234,141 @@ Set your API key as an environment variable:
 
 ```bash
 export ANTHROPIC_API_KEY="your-api-key-here"
+```
+
+## Conversation Management
+
+The SDK provides a powerful `Conversation` struct for managing ongoing conversations with tool use loops:
+
+### Basic Conversation
+
+```rust
+use hyperware_anthropic_sdk::{AnthropicClient, Conversation};
+
+async fn chat_example() -> Result<(), Box<dyn std::error::Error>> {
+    let client = AnthropicClient::new("your-api-key");
+    let mut conversation = Conversation::new("claude-opus-4-1-20250805", 1000)
+        .with_system("You are a helpful assistant");
+
+    // Add a user message and send
+    let update = conversation.send_user_message(&client, "Hello! What's 2+2?").await?;
+    println!("Claude: {}", update.text());
+
+    // Continue the conversation
+    let update = conversation.send_user_message(&client, "Now what's 10 times that?").await?;
+    println!("Claude: {}", update.text());
+
+    Ok(())
+}
+```
+
+### Tool Use Loop
+
+```rust
+use hyperware_anthropic_sdk::{AnthropicClient, Conversation, Tool, ToolResult};
+use serde_json::json;
+
+async fn tool_loop_example() -> Result<(), Box<dyn std::error::Error>> {
+    let client = AnthropicClient::new("your-api-key");
+
+    // Define tools
+    let calculator_tool = Tool::new(
+        "calculator",
+        "Perform mathematical calculations",
+        json!({
+            "expression": {
+                "type": "string",
+                "description": "Mathematical expression to evaluate"
+            }
+        }),
+        vec!["expression".to_string()],
+    );
+
+    let mut conversation = Conversation::new("claude-opus-4-1-20250805", 1000)
+        .with_tools(vec![calculator_tool]);
+
+    // Send a message that will trigger tool use
+    conversation.add_user_message("What's 123 * 456 + 789?");
+
+    // Complete the full tool loop
+    let updates = conversation.complete_tool_loop(&client, |tool_use| async move {
+        match tool_use.name.as_str() {
+            "calculator" => {
+                // Extract the expression from the tool input
+                let expression = tool_use.input["expression"].as_str().unwrap_or("");
+
+                // Simulate calculation (in real code, you'd evaluate safely)
+                let result = "56877"; // 123 * 456 + 789
+
+                Ok(ToolResult::success(tool_use.id, result))
+            }
+            _ => Ok(ToolResult::error(tool_use.id, "Unknown tool"))
+        }
+    }).await?;
+
+    // Get the final response
+    if let Some(final_update) = updates.last() {
+        println!("Final answer: {}", final_update.text());
+    }
+
+    Ok(())
+}
+```
+
+### Manual Tool Response Handling
+
+```rust
+async fn manual_tool_handling() -> Result<(), Box<dyn std::error::Error>> {
+    let client = AnthropicClient::new("your-api-key");
+    let mut conversation = Conversation::new("claude-opus-4-1-20250805", 1000)
+        .with_tools(vec![weather_tool]);
+
+    // Send initial message
+    let update = conversation.send_user_message(&client, "What's the weather in NYC?").await?;
+
+    // Check if tools were requested
+    if update.has_tool_uses() {
+        for tool_use in update.tool_uses {
+            println!("Tool requested: {} with input: {}", tool_use.name, tool_use.input);
+
+            // Execute the tool (your implementation)
+            let weather_data = fetch_weather(&tool_use.input).await?;
+
+            // Add the result
+            conversation.add_tool_result(
+                tool_use.id,
+                weather_data,
+                false, // not an error
+            )?;
+        }
+
+        // Send the tool results and get final response
+        let final_update = conversation.send(&client).await?;
+        println!("Claude's response: {}", final_update.text());
+    }
+
+    Ok(())
+}
+```
+
+### Managing Conversation State
+
+```rust
+// Fork a conversation to explore different paths
+let alternate_conversation = conversation.fork();
+
+// Access and modify message history
+let messages = conversation.messages();
+println!("Conversation has {} messages", messages.len());
+
+// Clear and start fresh while keeping settings
+conversation.clear();
+
+// Check for pending tool uses
+if conversation.has_pending_tool_uses() {
+    let pending = conversation.pending_tool_uses();
+    println!("{} tools waiting for responses", pending.len());
+}
 ```
 
 ## Usage Examples

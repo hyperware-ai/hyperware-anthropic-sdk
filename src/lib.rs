@@ -2,10 +2,12 @@
 // A Rust library for Hyperware processes to access the Anthropic API
 
 pub mod client;
+pub mod conversation;
 pub mod error;
 pub mod types;
 
 pub use client::AnthropicClient;
+pub use conversation::{Conversation, ConversationUpdate, ToolResult, ToolResultData, PendingToolUse};
 pub use error::AnthropicError;
 pub use types::*;
 
