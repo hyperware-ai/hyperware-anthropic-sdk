@@ -2,10 +2,9 @@ use crate::error::{AnthropicError, ApiErrorResponse};
 use crate::types::messages::{CreateMessageRequest, MessageResponse, Message, Role, Content};
 use hyperware_process_lib::http::client::send_request_await_response;
 use hyperware_process_lib::http::Method;
+use hyperware_process_lib::hyperapp::sleep;
 use serde_json;
 use std::collections::HashMap;
-use std::time::Duration;
-use tokio::time::sleep;
 
 const ANTHROPIC_API_BASE_URL: &str = "https://api.anthropic.com";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
@@ -58,12 +57,12 @@ impl AnthropicClient {
         self
     }
 
-    /// Calculate retry delay with exponential backoff and jitter
-    fn calculate_retry_delay(attempt: u32) -> Duration {
+    /// Calculate retry delay with exponential backoff and jitter, in ms
+    fn calculate_retry_delay(attempt: u32) -> u64 {
         let base_delay = INITIAL_RETRY_DELAY_MS * 2u64.pow(attempt);
         let delay_with_jitter = base_delay + (rand::random::<u64>() % 1000);
         let final_delay = delay_with_jitter.min(MAX_RETRY_DELAY_MS);
-        Duration::from_millis(final_delay)
+        final_delay
     }
 
     /// Check if an error is retryable
@@ -95,7 +94,7 @@ impl AnthropicClient {
                         let delay = Self::calculate_retry_delay(attempt);
                         eprintln!("Retrying after error: {}. Attempt {} of {}. Waiting {:?}",
                                  error, attempt + 1, self.max_retries, delay);
-                        sleep(delay).await;
+                        sleep(delay).await.unwrap();
                         last_error = Some(error);
                     } else {
                         // Non-retryable error or max retries reached
