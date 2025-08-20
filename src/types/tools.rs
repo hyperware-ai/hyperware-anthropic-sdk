@@ -41,7 +41,13 @@ pub enum ToolChoice {
 }
 
 impl Tool {
-    pub fn new(name: impl Into<String>, description: impl Into<String>, properties: Value, required: Vec<String>) -> Self {
+    pub fn new(
+        name: impl Into<String>,
+        description: impl Into<String>,
+        properties: Value,
+        required: Vec<String>,
+        tool_type: Option<String>,
+    ) -> Self {
         Self {
             name: name.into(),
             description: description.into(),
@@ -50,13 +56,15 @@ impl Tool {
                 properties,
                 required: Some(required),
             },
-            tool_type: Some("custom".to_string()),
+            tool_type,
         }
     }
 }
 
 impl Default for ToolChoice {
     fn default() -> Self {
-        ToolChoice::Auto { disable_parallel_tool_use: None }
+        ToolChoice::Auto {
+            disable_parallel_tool_use: None,
+        }
     }
 }
