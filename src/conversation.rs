@@ -1,9 +1,9 @@
+use crate::client::AnthropicClient;
 use crate::error::AnthropicError;
 use crate::types::messages::{
-    Message, Role, Content, ContentBlock, CreateMessageRequest, MessageResponse,
-    ResponseContentBlock, ToolResultContent,
+    Content, ContentBlock, CreateMessageRequest, Message, MessageResponse, ResponseContentBlock,
+    Role, ToolResultContent,
 };
-use crate::client::AnthropicClient;
 use serde_json::Value;
 
 /// Manages an ongoing conversation with Claude, handling message history and tool use loops
@@ -166,12 +166,16 @@ impl Conversation {
 
         for result in results {
             // Find and remove the pending tool use
-            let pending_index = self.pending_tool_uses
+            let pending_index = self
+                .pending_tool_uses
                 .iter()
                 .position(|p| p.id == result.tool_use_id)
-                .ok_or_else(|| AnthropicError::InvalidResponse(
-                    format!("No pending tool use with id: {}", result.tool_use_id)
-                ))?;
+                .ok_or_else(|| {
+                    AnthropicError::InvalidResponse(format!(
+                        "No pending tool use with id: {}",
+                        result.tool_use_id
+                    ))
+                })?;
 
             self.pending_tool_uses.remove(pending_index);
 
@@ -193,7 +197,12 @@ impl Conversation {
     }
 
     /// Convenience method to add a single tool result
-    pub fn add_tool_result(&mut self, tool_use_id: String, content: impl Into<String>, is_error: bool) -> Result<(), AnthropicError> {
+    pub fn add_tool_result(
+        &mut self,
+        tool_use_id: String,
+        content: impl Into<String>,
+        is_error: bool,
+    ) -> Result<(), AnthropicError> {
         self.add_tool_results(vec![ToolResult {
             tool_use_id,
             content: ToolResultData::Text(content.into()),
@@ -213,11 +222,8 @@ impl Conversation {
 
     /// Build a request from the current conversation state
     pub fn build_request(&self) -> CreateMessageRequest {
-        let mut request = CreateMessageRequest::new(
-            self.model.clone(),
-            self.messages.clone(),
-            self.max_tokens,
-        );
+        let mut request =
+            CreateMessageRequest::new(self.model.clone(), self.messages.clone(), self.max_tokens);
 
         if let Some(ref system) = self.system {
             request = request.with_system(system.clone());
@@ -239,7 +245,10 @@ impl Conversation {
     }
 
     /// Send the current conversation to Claude and get a response
-    pub async fn send(&mut self, client: &AnthropicClient) -> Result<ConversationUpdate, AnthropicError> {
+    pub async fn send(
+        &mut self,
+        client: &AnthropicClient,
+    ) -> Result<ConversationUpdate, AnthropicError> {
         let request = self.build_request();
         let response = client.send_message(request).await?;
         Ok(self.process_response(&response))

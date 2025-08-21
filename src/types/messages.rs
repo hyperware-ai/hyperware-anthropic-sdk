@@ -80,13 +80,8 @@ pub enum ImageSourceType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum ImageSourceData {
-    Base64 {
-        media_type: String,
-        data: String,
-    },
-    Url {
-        url: String,
-    },
+    Base64 { media_type: String, data: String },
+    Url { url: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,31 +98,31 @@ pub struct CreateMessageRequest {
     pub model: String,
     pub messages: Vec<Message>,
     pub max_tokens: u32,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<SystemPrompt>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<HashMap<String, String>>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stop_sequences: Option<Vec<String>>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_k: Option<u32>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<crate::types::tools::Tool>>,
-    
+
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<crate::types::tools::ToolChoice>,
 }
@@ -212,22 +207,22 @@ impl CreateMessageRequest {
             tool_choice: None,
         }
     }
-    
+
     pub fn with_system(mut self, system: impl Into<String>) -> Self {
         self.system = Some(SystemPrompt::Text(system.into()));
         self
     }
-    
+
     pub fn with_tools(mut self, tools: Vec<crate::types::tools::Tool>) -> Self {
         self.tools = Some(tools);
         self
     }
-    
+
     pub fn with_tool_choice(mut self, tool_choice: crate::types::tools::ToolChoice) -> Self {
         self.tool_choice = Some(tool_choice);
         self
     }
-    
+
     pub fn with_temperature(mut self, temperature: f32) -> Self {
         self.temperature = Some(temperature);
         self

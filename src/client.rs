@@ -1,5 +1,5 @@
 use crate::error::{AnthropicError, ApiErrorResponse};
-use crate::types::messages::{CreateMessageRequest, MessageResponse, Message, Role, Content};
+use crate::types::messages::{Content, CreateMessageRequest, Message, MessageResponse, Role};
 use hyperware_process_lib::http::client::send_request_await_response;
 use hyperware_process_lib::http::Method;
 use hyperware_process_lib::hyperapp::sleep;
@@ -58,13 +58,13 @@ impl AnthropicClient {
         self.max_retries = max_retries;
         self
     }
-    
+
     /// Add a custom header to be sent with all requests
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.custom_headers.insert(key.into(), value.into());
         self
     }
-    
+
     /// Add multiple custom headers to be sent with all requests
     pub fn with_headers(mut self, headers: HashMap<String, String>) -> Self {
         self.custom_headers.extend(headers);
@@ -96,7 +96,10 @@ impl AnthropicClient {
     }
 
     /// Send a message to the Anthropic API with retry logic
-    pub async fn send_message(&self, request: CreateMessageRequest) -> Result<MessageResponse, AnthropicError> {
+    pub async fn send_message(
+        &self,
+        request: CreateMessageRequest,
+    ) -> Result<MessageResponse, AnthropicError> {
         let mut last_error = None;
 
         for attempt in 0..=self.max_retries {
@@ -106,8 +109,13 @@ impl AnthropicClient {
                     // Check if the error is retryable
                     if Self::is_retryable_error(&error) && attempt < self.max_retries {
                         let delay = Self::calculate_retry_delay(attempt);
-                        eprintln!("Retrying after error: {}. Attempt {} of {}. Waiting {:?}",
-                                 error, attempt + 1, self.max_retries, delay);
+                        eprintln!(
+                            "Retrying after error: {}. Attempt {} of {}. Waiting {:?}",
+                            error,
+                            attempt + 1,
+                            self.max_retries,
+                            delay
+                        );
                         sleep(delay).await.unwrap();
                         last_error = Some(error);
                     } else {
@@ -119,13 +127,15 @@ impl AnthropicClient {
         }
 
         // Should not reach here, but return last error if we do
-        Err(last_error.unwrap_or_else(||
-            AnthropicError::InvalidResponse("Max retries reached".to_string())
-        ))
+        Err(last_error
+            .unwrap_or_else(|| AnthropicError::InvalidResponse("Max retries reached".to_string())))
     }
 
     /// Internal method to send a message without retry logic
-    async fn send_message_internal(&self, request: CreateMessageRequest) -> Result<MessageResponse, AnthropicError> {
+    async fn send_message_internal(
+        &self,
+        request: CreateMessageRequest,
+    ) -> Result<MessageResponse, AnthropicError> {
         // Ensure streaming is disabled
         let mut request = request;
         request.stream = Some(false);
@@ -144,20 +154,15 @@ impl AnthropicClient {
         headers.insert("x-api-key".to_string(), self.api_key.clone());
         headers.insert("anthropic-version".to_string(), self.api_version.clone());
         headers.insert("content-type".to_string(), "application/json".to_string());
-        
+
         // Add custom headers (these can override defaults if needed)
         headers.extend(self.custom_headers.clone());
 
         // Make the HTTP request using the Hyperware HTTP client
-        let response = send_request_await_response(
-            Method::POST,
-            url,
-            Some(headers),
-            self.timeout,
-            body,
-        )
-        .await
-        .map_err(|e| AnthropicError::HttpClient(e.to_string()))?;
+        let response =
+            send_request_await_response(Method::POST, url, Some(headers), self.timeout, body)
+                .await
+                .map_err(|e| AnthropicError::HttpClient(e.to_string()))?;
 
         // Check response status
         let status = response.status();
@@ -165,8 +170,9 @@ impl AnthropicClient {
 
         if status.is_success() {
             // Parse successful response
-            serde_json::from_slice::<MessageResponse>(&body)
-                .map_err(|e| AnthropicError::Deserialization(format!("Failed to parse response: {}", e)))
+            serde_json::from_slice::<MessageResponse>(&body).map_err(|e| {
+                AnthropicError::Deserialization(format!("Failed to parse response: {}", e))
+            })
         } else {
             // Try to parse error response
             if let Ok(error_response) = serde_json::from_slice::<ApiErrorResponse>(&body) {
@@ -216,10 +222,14 @@ impl AnthropicClient {
         if let Some(first_block) = response.content.first() {
             match first_block {
                 crate::types::messages::ResponseContentBlock::Text { text, .. } => Ok(text.clone()),
-                _ => Err(AnthropicError::InvalidResponse("Expected text response".to_string())),
+                _ => Err(AnthropicError::InvalidResponse(
+                    "Expected text response".to_string(),
+                )),
             }
         } else {
-            Err(AnthropicError::InvalidResponse("Empty response content".to_string()))
+            Err(AnthropicError::InvalidResponse(
+                "Empty response content".to_string(),
+            ))
         }
     }
 }

@@ -8,28 +8,25 @@ pub use hyperware_process_lib::http::client::HttpClientError;
 pub enum AnthropicError {
     #[error("HTTP client error: {0}")]
     HttpClient(String),
-    
+
     #[error("API key not provided")]
     MissingApiKey,
-    
+
     #[error("Invalid API response: {0}")]
     InvalidResponse(String),
-    
+
     #[error("API error: {error_type}: {message}")]
-    ApiError {
-        error_type: String,
-        message: String,
-    },
-    
+    ApiError { error_type: String, message: String },
+
     #[error("Rate limit exceeded")]
     RateLimit,
-    
+
     #[error("Authentication failed")]
     Authentication,
-    
+
     #[error("Serialization error: {0}")]
     Serialization(String),
-    
+
     #[error("Deserialization error: {0}")]
     Deserialization(String),
 }
