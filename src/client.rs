@@ -19,6 +19,7 @@ pub struct AnthropicClient {
     api_version: String,
     timeout: u64,
     max_retries: u32,
+    custom_headers: HashMap<String, String>,
 }
 
 impl AnthropicClient {
@@ -30,6 +31,7 @@ impl AnthropicClient {
             api_version: ANTHROPIC_API_VERSION.to_string(),
             timeout: DEFAULT_TIMEOUT_SECONDS,
             max_retries: MAX_RETRIES,
+            custom_headers: HashMap::new(),
         }
     }
 
@@ -54,6 +56,18 @@ impl AnthropicClient {
     /// Set maximum number of retries for transient errors
     pub fn with_max_retries(mut self, max_retries: u32) -> Self {
         self.max_retries = max_retries;
+        self
+    }
+    
+    /// Add a custom header to be sent with all requests
+    pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.custom_headers.insert(key.into(), value.into());
+        self
+    }
+    
+    /// Add multiple custom headers to be sent with all requests
+    pub fn with_headers(mut self, headers: HashMap<String, String>) -> Self {
+        self.custom_headers.extend(headers);
         self
     }
 
@@ -125,11 +139,14 @@ impl AnthropicClient {
         let url = url::Url::parse(&url)
             .map_err(|_| AnthropicError::InvalidResponse(format!("Invalid URL: {}", url)))?;
 
-        // Build headers
+        // Build headers - start with default headers
         let mut headers = HashMap::new();
         headers.insert("x-api-key".to_string(), self.api_key.clone());
         headers.insert("anthropic-version".to_string(), self.api_version.clone());
         headers.insert("content-type".to_string(), "application/json".to_string());
+        
+        // Add custom headers (these can override defaults if needed)
+        headers.extend(self.custom_headers.clone());
 
         // Make the HTTP request using the Hyperware HTTP client
         let response = send_request_await_response(
