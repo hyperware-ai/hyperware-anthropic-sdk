@@ -68,4 +68,26 @@ mod tests {
 
         // Client should be created with all configurations
     }
+
+    #[test]
+    fn test_oauth_configuration() {
+        // Test OAuth authentication mode
+        let _oauth_client = AnthropicClient::new("bearer_token_here").with_oauth();
+
+        // Client should be created with OAuth mode enabled
+    }
+
+    #[test]
+    fn test_oauth_with_custom_headers() {
+        // Test OAuth mode combined with custom headers
+        let mut headers = HashMap::new();
+        headers.insert("X-Custom".to_string(), "custom-value".to_string());
+
+        let _oauth_client = AnthropicClient::new("bearer_token")
+            .with_oauth()
+            .with_headers(headers)
+            .with_header("X-Request-ID", "req-123");
+
+        // Client should be created with OAuth and custom headers
+    }
 }

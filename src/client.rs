@@ -8,6 +8,7 @@ use std::collections::HashMap;
 
 const ANTHROPIC_API_BASE_URL: &str = "https://api.anthropic.com";
 const ANTHROPIC_API_VERSION: &str = "2023-06-01";
+const ANTHROPIC_OAUTH_BETA: &str = "oauth-2025-04-20";
 const DEFAULT_TIMEOUT_SECONDS: u64 = 60;
 const MAX_RETRIES: u32 = 10;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
@@ -20,6 +21,7 @@ pub struct AnthropicClient {
     timeout: u64,
     max_retries: u32,
     custom_headers: HashMap<String, String>,
+    use_oauth: bool,
 }
 
 impl AnthropicClient {
@@ -32,6 +34,7 @@ impl AnthropicClient {
             timeout: DEFAULT_TIMEOUT_SECONDS,
             max_retries: MAX_RETRIES,
             custom_headers: HashMap::new(),
+            use_oauth: false,
         }
     }
 
@@ -68,6 +71,14 @@ impl AnthropicClient {
     /// Add multiple custom headers to be sent with all requests
     pub fn with_headers(mut self, headers: HashMap<String, String>) -> Self {
         self.custom_headers.extend(headers);
+        self
+    }
+
+    /// Enable OAuth authentication mode
+    /// When enabled, the API key will be sent as a Bearer token in the Authorization header
+    /// instead of using the x-api-key header
+    pub fn with_oauth(mut self) -> Self {
+        self.use_oauth = true;
         self
     }
 
@@ -151,8 +162,23 @@ impl AnthropicClient {
 
         // Build headers - start with default headers
         let mut headers = HashMap::new();
-        headers.insert("x-api-key".to_string(), self.api_key.clone());
-        headers.insert("anthropic-version".to_string(), self.api_version.clone());
+
+        if self.use_oauth {
+            // OAuth mode: use Bearer token and anthropic-beta header
+            headers.insert(
+                "Authorization".to_string(),
+                format!("Bearer {}", self.api_key),
+            );
+            headers.insert(
+                "anthropic-beta".to_string(),
+                ANTHROPIC_OAUTH_BETA.to_string(),
+            );
+        } else {
+            // Standard mode: use x-api-key and anthropic-version headers
+            headers.insert("x-api-key".to_string(), self.api_key.clone());
+            headers.insert("anthropic-version".to_string(), self.api_version.clone());
+        }
+
         headers.insert("content-type".to_string(), "application/json".to_string());
 
         // Add custom headers (these can override defaults if needed)
