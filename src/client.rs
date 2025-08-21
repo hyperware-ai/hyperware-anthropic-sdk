@@ -163,6 +163,9 @@ impl AnthropicClient {
         // Build headers - start with default headers
         let mut headers = HashMap::new();
 
+        // Always include anthropic-version header
+        headers.insert("anthropic-version".to_string(), self.api_version.clone());
+
         if self.use_oauth {
             // OAuth mode: use Bearer token and anthropic-beta header
             headers.insert(
@@ -174,9 +177,8 @@ impl AnthropicClient {
                 ANTHROPIC_OAUTH_BETA.to_string(),
             );
         } else {
-            // Standard mode: use x-api-key and anthropic-version headers
+            // Standard mode: use x-api-key header
             headers.insert("x-api-key".to_string(), self.api_key.clone());
-            headers.insert("anthropic-version".to_string(), self.api_version.clone());
         }
 
         headers.insert("content-type".to_string(), "application/json".to_string());
