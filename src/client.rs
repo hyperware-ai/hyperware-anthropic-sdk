@@ -1,8 +1,6 @@
 use crate::error::{AnthropicError, ApiErrorResponse};
 use crate::types::messages::{Content, CreateMessageRequest, Message, MessageResponse, Role};
-use hyperware_process_lib::http::client::send_request_await_response;
-use hyperware_process_lib::http::Method;
-use hyperware_process_lib::hyperapp::sleep;
+use hyperware_process_lib::{println, http::{Method, client::send_request_await_response}, hyperapp::sleep};
 use serde_json;
 use std::collections::HashMap;
 
@@ -120,7 +118,7 @@ impl AnthropicClient {
                     // Check if the error is retryable
                     if Self::is_retryable_error(&error) && attempt < self.max_retries {
                         let delay = Self::calculate_retry_delay(attempt);
-                        eprintln!(
+                        println!(
                             "Retrying after error: {}. Attempt {} of {}. Waiting {:?}",
                             error,
                             attempt + 1,
