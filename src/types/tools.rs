@@ -1,3 +1,4 @@
+use crate::types::messages::CacheControl;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -9,6 +10,8 @@ pub struct Tool {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename = "type")]
     pub tool_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,7 +60,13 @@ impl Tool {
                 required: Some(required),
             },
             tool_type,
+            cache_control: None,
         }
+    }
+
+    pub fn with_cache_control(mut self, cache_control: CacheControl) -> Self {
+        self.cache_control = Some(cache_control);
+        self
     }
 }
 

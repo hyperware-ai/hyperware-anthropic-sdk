@@ -1,6 +1,10 @@
 use crate::error::{AnthropicError, ApiErrorResponse};
 use crate::types::messages::{Content, CreateMessageRequest, Message, MessageResponse, Role};
-use hyperware_process_lib::{println, http::{Method, client::send_request_await_response}, hyperapp::sleep};
+use hyperware_process_lib::{
+    http::{client::send_request_await_response, Method},
+    hyperapp::sleep,
+    println,
+};
 use serde_json;
 use std::collections::HashMap;
 

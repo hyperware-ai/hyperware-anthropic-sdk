@@ -92,6 +92,32 @@ pub struct CacheControl {
     pub ttl: Option<String>,
 }
 
+impl CacheControl {
+    /// Create a new ephemeral cache control with default 5-minute TTL
+    pub fn ephemeral() -> Self {
+        Self {
+            cache_type: "ephemeral".to_string(),
+            ttl: None,
+        }
+    }
+
+    /// Create a new ephemeral cache control with 5-minute TTL
+    pub fn ephemeral_5m() -> Self {
+        Self {
+            cache_type: "ephemeral".to_string(),
+            ttl: Some("5m".to_string()),
+        }
+    }
+
+    /// Create a new ephemeral cache control with 1-hour TTL
+    pub fn ephemeral_1h() -> Self {
+        Self {
+            cache_type: "ephemeral".to_string(),
+            ttl: Some("1h".to_string()),
+        }
+    }
+}
+
 // Request structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateMessageRequest {
@@ -139,6 +165,25 @@ pub struct SystemPromptBlock {
     #[serde(rename = "type")]
     pub block_type: String,
     pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<CacheControl>,
+}
+
+impl SystemPromptBlock {
+    /// Create a new text system prompt block
+    pub fn text(text: impl Into<String>) -> Self {
+        Self {
+            block_type: "text".to_string(),
+            text: text.into(),
+            cache_control: None,
+        }
+    }
+
+    /// Add cache control to this system prompt block
+    pub fn with_cache_control(mut self, cache_control: CacheControl) -> Self {
+        self.cache_control = Some(cache_control);
+        self
+    }
 }
 
 // Response structure
@@ -210,6 +255,11 @@ impl CreateMessageRequest {
 
     pub fn with_system(mut self, system: impl Into<String>) -> Self {
         self.system = Some(SystemPrompt::Text(system.into()));
+        self
+    }
+
+    pub fn with_system_blocks(mut self, blocks: Vec<SystemPromptBlock>) -> Self {
+        self.system = Some(SystemPrompt::Blocks(blocks));
         self
     }
 
