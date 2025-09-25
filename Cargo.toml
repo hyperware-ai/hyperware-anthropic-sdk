@@ -8,12 +8,12 @@ license = "MIT"
 repository = "https://github.com/hyperware/hyperware-anthropic-sdk"
 
 [dependencies]
-hyperware_process_lib = { git = "https://github.com/hyperware-ai/process_lib", rev = "4beff93", features = ["hyperapp"] }
+hyperware_process_lib = { git = "https://github.com/hyperware-ai/process_lib", rev = "232fe25", features = ["hyperapp"] }
+rand = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 url = "2.5"
-rand = "0.8"
 
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
